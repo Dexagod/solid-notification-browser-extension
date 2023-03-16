@@ -15,5 +15,8 @@
   },
   "author": "Axel Lorreyne",
   "private": "true",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "n3": "^1.16.3"
+  }
 }

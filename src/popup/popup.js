@@ -88,10 +88,22 @@ function handleAfterLogin(success) {
         document.getElementById("login-status-fail").classList.add('hidden');
         document.getElementById("generate-button").classList.add("d-none");
         document.getElementById('logout-button').classList.remove("d-none");
+
+        console.log('Its A Success')
+        getNotifications();
     } else {
         document.getElementById("login-status-fail").classList.remove('hidden');
         document.getElementById("login-status-success").classList.add('hidden');
     }
+}
+
+async function getNotifications() { 
+    chrome.runtime.sendMessage({
+        msg: "handle-notifications",
+    }, function (response) {
+    });
+    // let res = await fetch("https://pod.rubendedecker.be/inbox/", {headers: {"Accept": "text/turtle"}})
+    // console.log(await res.text())
 }
 
 main();

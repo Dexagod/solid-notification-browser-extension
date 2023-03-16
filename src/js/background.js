@@ -1,5 +1,7 @@
 import {getAccessToken, getToken, getTokenUrl} from "./solid.js";
-import {createDpopHeader} from '@inrupt/solid-client-authn-core';
+import { createDpopHeader } from '@inrupt/solid-client-authn-core';
+
+import { handleNotifications } from "./notifications.js";
 
 var id;
 var secret;
@@ -109,6 +111,8 @@ async function handleMessage(message) {
         return {
             authenticated: authenticated
         };
+    } else if (message.msg === "handle-notifications") { 
+        handleNotifications()
     }
 }
 
@@ -190,5 +194,6 @@ function storeInBrowserStorage(item, callback) {
 function removeFromBrowserStorage(item, callback) {
     chrome.storage.local.remove(item, callback);
 }
+
 
 main();

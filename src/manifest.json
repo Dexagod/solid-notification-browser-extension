@@ -16,7 +16,8 @@
     "tabs",
     "webNavigation",
     "webRequest",
-    "webRequestBlocking"
+    "webRequestBlocking",
+    "notifications"
   ],
 
   "browser_action": {
