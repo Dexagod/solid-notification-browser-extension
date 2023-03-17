@@ -2,10 +2,12 @@ import {getAccessToken, getToken, getTokenUrl} from "./solid.js";
 import { createDpopHeader } from '@inrupt/solid-client-authn-core';
 
 import { handleNotifications } from "./notifications.js";
+const N3 = require('n3');
 
 var id;
 var secret;
 var tokenUrl;
+var webid;
 
 var isChrome;
 
@@ -78,9 +80,30 @@ async function rewriteRequestHeaders(details) {
  */
 async function handleMessage(message) {
     if (message.msg === "generate-id") {
+        webid = message.webid
 
-        let credentialsUrl = message.idp + "idp/credentials/";
-        tokenUrl = await getTokenUrl(message.idp);
+        let res = await fetch(webid, { cache: "no-cache", headers: { "Accept": "text/turtle" } })
+        let contents = await res.text()
+        let quads = await new N3.Parser({ baseIRI: webid }).parse(contents);
+        
+        let idp;
+        for (let quad of quads) { 
+            if (quad.subject.value === webid && quad.predicate.value === "http://www.w3.org/ns/solid/terms#oidcIssuer") { 
+                idp = quad.object.value;
+                break;
+            }
+        }
+        if (!idp) { 
+            console.error('Your profile does not have the required oidcIssuer value.')
+            return;
+        }
+            
+        if (!idp.endsWith("/")) {
+            idp = idp + "/"
+        }
+
+        let credentialsUrl = idp + "idp/credentials/";
+        tokenUrl = await getTokenUrl(idp);
 
         const response = await getToken(message.email, message.password, credentialsUrl);
         id = response.id;
@@ -90,7 +113,7 @@ async function handleMessage(message) {
         changeIcon(success);
 
         if (success) {
-            storeCredentialsInBrowserStorage(id, secret, tokenUrl);
+            storeCredentialsInBrowserStorage(id, secret, tokenUrl, webid);
         }
 
         return {
@@ -112,7 +135,8 @@ async function handleMessage(message) {
             authenticated: authenticated
         };
     } else if (message.msg === "handle-notifications") { 
-        handleNotifications()
+        handleNotifications(webid)
+        setInterval(() => { handleNotifications(webid) }, 5000);
     }
 }
 
@@ -138,6 +162,7 @@ function getCredentialsFromBrowserStorage() {
             id = result.solidCredentials.id
             secret = result.solidCredentials.secret
             tokenUrl = result.solidCredentials.tokenUrl
+            webid = result.solidCredentials.webid
             changeIcon(true);
         } else {
             changeIcon(false);
@@ -151,12 +176,13 @@ function getCredentialsFromBrowserStorage() {
  * @param {String} secret - Client secret
  * @param {String} tokenUrl - Token url from which access tokens can be requested
  */
-function storeCredentialsInBrowserStorage(id, secret, tokenUrl) {
+function storeCredentialsInBrowserStorage(id, secret, tokenUrl, webid) {
     storeInBrowserStorage({
         solidCredentials: {
             id: id,
             secret: secret,
-            tokenUrl: tokenUrl
+            tokenUrl: tokenUrl,
+            webid: webid
         }
     })
 }

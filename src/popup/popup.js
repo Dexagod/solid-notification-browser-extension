@@ -9,13 +9,12 @@ function main() {
 
     document.getElementById("email-input-form").addEventListener("keypress", submitLoginOnKeyEnter);
     document.getElementById("password-input-form").addEventListener("keypress", submitLoginOnKeyEnter);
-    document.getElementById("idp-input-form").addEventListener("keypress", submitLoginOnKeyEnter);
+    document.getElementById("webid-input-form").addEventListener("keypress", submitLoginOnKeyEnter);
 
     chrome.runtime.sendMessage({
         msg: "check-authenticated"
     }, function (response) {
         if (response.authenticated) {
-            console.log(response);
             handleAfterLogin(true);
         }
     });
@@ -40,17 +39,13 @@ async function handleOnClickLogin() {
 
     let email = document.getElementById("email-input-form").value
     let password = document.getElementById("password-input-form").value
-    let idp = document.getElementById("idp-input-form").value
-
-    if (!idp.endsWith("/")) {
-        idp = idp + "/"
-    }
+    let webid = document.getElementById("webid-input-form").value
 
     chrome.runtime.sendMessage({
         msg: "generate-id",
         email,
         password,
-        idp,
+        webid,
     }, function (response) {
         handleAfterLogin(response.success)
     });
@@ -71,7 +66,7 @@ function handleOnClickLogout() {
 
     document.getElementById("email-input-form").value = '';
     document.getElementById('password-input-form').value = '';
-    document.getElementById('idp-input-form').value = '';
+    document.getElementById('webid-input-form').value = '';
 }
 
 /**
@@ -102,8 +97,6 @@ async function getNotifications() {
         msg: "handle-notifications",
     }, function (response) {
     });
-    // let res = await fetch("https://pod.rubendedecker.be/inbox/", {headers: {"Accept": "text/turtle"}})
-    // console.log(await res.text())
 }
 
 main();

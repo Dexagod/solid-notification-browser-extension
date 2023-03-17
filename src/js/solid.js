@@ -39,7 +39,7 @@ export async function getAccessToken(id, secret, tokenUrl) {
         },
         body: 'grant_type=client_credentials&scope=webid',
     });
-    const {access_token: accessToken} = await receive.json();
+    const { access_token: accessToken } = await receive.json();
     return {accessToken, dpopKey};
 }
 

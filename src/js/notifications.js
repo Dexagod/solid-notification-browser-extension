@@ -1,10 +1,36 @@
 const N3 = require('n3');
 
+// This is just for the testing environment. This should be stored in browser storage in due time.
+var handledNotifications = []
+
 // Handle notifications
 
-export async function handleNotifications() { 
-    let inboxURL = "https://pod.rubendedecker.be/inbox/"
-    let res = await fetch(inboxURL, { headers: { "Accept": "text/turtle" } })
+export async function handleNotifications(webid) { 
+    console.log(`Fetching new notifications for ${webid}`);
+
+    let resprofile = await fetch(webid, { headers: { "Accept": "text/turtle" } })
+    let contentsprofile = await resprofile.text()
+    let quadsprofile = await new N3.Parser({ baseIRI: webid }).parse(contentsprofile);
+    
+    let inboxURL;
+    for (let quad of quadsprofile) { 
+        if (
+            quad.subject.value === webid &&
+            (
+                quad.predicate.value === "http://www.w3.org/ns/ldp#inbox" ||
+                quad.predicate.value === "https://www.w3.org/ns/activitystreams#inbox"
+            )
+        ) { 
+            inboxURL = quad.object.value;
+            break;
+        } 
+    }
+    if (!inboxURL) { 
+        console.error('Could not retrieve inbox URL from profile');
+        return;
+    }
+    
+    let res = await fetch(inboxURL, { cache: "no-cache", headers: { "Accept": "text/turtle" } })
     let contents = await res.text()
     let quads = await new N3.Parser({baseIRI: inboxURL}).parse(contents);
 
@@ -29,6 +55,9 @@ export async function handleNotifications() {
     notificationInfos.sort(((n1, n2) => { return (n2.modified - n1.modified) }))
 
     for (let notificationInfo of notificationInfos) { 
+        // skip handled notifications
+        if (handledNotifications.includes(notificationInfo.id)) continue;
+
         let displayData = null;
         try {
             displayData = await processNotification(notificationInfo);
@@ -37,7 +66,12 @@ export async function handleNotifications() {
             console.error(e.toString())
         }
         if (displayData) { 
-            displayNotification(displayData);
+            try { 
+                displayNotification({ ...displayData, notificationId: notificationInfo.id });
+            } catch (e) {
+                console.error('failed to display activity')
+                console.error(e.toString())
+            }
         }
     }
 }
@@ -81,13 +115,11 @@ async function processNotification(notificationInfo) {
 
     let smallIcon = {}
     let smallIconTerm = store.getQuads(generatorIdTerm, AS + "icon", null).map(q=>q.object)[0]
-    console.log('smallIconTerm', smallIconTerm)
     if (smallIconTerm) store.getQuads(smallIconTerm, null, null).map(q => { smallIcon[clearURI(q.predicate.value)] = processTerm(q.object) })
     if (!smallIcon.url) smallIcon.url = await getImageUrl(generatorIdTerm.value) 
 
     let largeIcon = {}
     let largeIconTerm = store.getQuads(activityIdTerm, AS + "image", null).map(q=>q.object)[0]
-    console.log('largeIconTerm', largeIconTerm)
     if (largeIconTerm) store.getQuads(largeIconTerm, null, null).map(q => { largeIcon[clearURI(q.predicate.value)] = processTerm(q.object) })
     if (!largeIcon.url) largeIcon = null;
     
@@ -111,8 +143,6 @@ async function processNotification(notificationInfo) {
         text,
         type
     }
-
-    console.log('activity', activity)
     return activity    
 }
 
@@ -183,14 +213,20 @@ async function getImageUrl(id) {
 
 function displayNotification(displayData) { 
     let options = {
-        iconUrl: displayData.smallIcon.url,
-        imageUrl: displayData.largeIcon.url,
+        iconUrl: displayData.smallIcon ? displayData.smallIcon.url : null,
+        imageUrl: displayData.largeIcon ? displayData.largeIcon.url : null,
         message: displayData.text || "",
-        title: displayData.title || "",
-        type: "basic",
+        title: displayData.title || ""
+    }
+    if (options.imageUrl) {
+        options.type = "image"
+    } else { 
+        options.type = "basic"
     }
     function callback() {
-        console.log("Notification succesfull");
+        console.log("Notification diplayed succesfully");
+        handledNotifications.push(displayData.notificationId)
     }
+    console.log('options', options)
     chrome.notifications.create(options, callback)
 }
